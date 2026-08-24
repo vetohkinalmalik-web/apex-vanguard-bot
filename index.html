@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0b0e14">
+<title>Game Portal</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:var(--tg-theme-bg-color,#0b0e14);--text:var(--tg-theme-text-color,#fff);--hint:var(--tg-theme-hint-color,#94a3b8);--card:rgba(255,255,255,.06);--border:rgba(255,255,255,.09)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;padding:20px 16px;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.container{width:100%;max-width:520px;margin:auto}
+.header{text-align:center;margin-bottom:18px}.title{margin:0;font-size:24px;font-weight:800}.subtitle{margin:5px 0 0;color:var(--hint);font-size:13px}
+#cards{display:flex;flex-direction:column;gap:12px}
+.card{display:flex;align-items:center;gap:14px;padding:15px;border:1px solid var(--border);border-radius:18px;background:var(--card);cursor:pointer;transition:transform .12s ease}
+.card:active{transform:scale(.985)}.card img{width:52px;height:52px;border-radius:13px;object-fit:cover;flex:none}
+.info{min-width:0;flex:1}.card-title{display:block;font-size:16px;font-weight:750}.card-desc{display:block;margin-top:3px;color:var(--hint);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.status{text-align:center;padding:20px;color:var(--hint);font-size:13px}.share{margin-top:14px;justify-content:center}
+</style>
+</head>
+<body>
+<main class="container">
+<header class="header"><h1 class="title">Добро пожаловать!</h1><p class="subtitle">Выберите раздел для продолжения</p></header>
+<section id="cards" aria-live="polite"><div class="status">Загрузка...</div></section>
+<div class="card share" id="shareButton"><div class="info"><span class="card-title">🔗 Поделиться</span><span class="card-desc">Отправить ссылку друзьям</span></div></div>
+</main>
+<script>
+"use strict";
+const tg=window.Telegram?.WebApp;
+const cardsElement=document.getElementById("cards");
+if(tg){tg.ready();tg.expand();}
+function initData(){return tg?.initData||"";}
+function openTelegramUrl(url){
+ if(typeof url!=="string"||!/^https?:\/\//i.test(url))return;
+ try{if(tg)tg.openTelegramLink(url);else window.open(url,"_blank","noopener,noreferrer")}
+ catch(e){console.error(e);tg?.showAlert?.("Не удалось открыть ссылку.")}
+}
+async function api(path,options={}){
+ const headers=new Headers(options.headers||{});
+ headers.set("X-Telegram-Init-Data",initData());
+ const response=await fetch(path,{...options,headers,credentials:"same-origin",cache:"no-store"});
+ let data=null;try{data=await response.json()}catch{}
+ if(!response.ok)throw new Error(data?.detail||"Ошибка сервера.");
+ return data;
+}
+function renderCards(cards){
+ cardsElement.replaceChildren();
+ if(!Array.isArray(cards)||!cards.length){cardsElement.innerHTML='<div class="status">Пока нет доступных разделов.</div>';return;}
+ for(const card of cards){
+  const article=document.createElement("article");article.className="card";
+  const image=document.createElement("img");image.src=String(card.image_url||"");image.alt="";image.loading="lazy";image.referrerPolicy="no-referrer";
+  image.onerror=()=>{image.src="https://via.placeholder.com/96"};
+  const info=document.createElement("div");info.className="info";
+  const title=document.createElement("span");title.className="card-title";title.textContent=String(card.title||"");
+  const desc=document.createElement("span");desc.className="card-desc";desc.textContent=String(card.description||"");
+  info.append(title,desc);article.append(image,info);
+  article.addEventListener("click",()=>openTelegramUrl(card.url));cardsElement.append(article);
+ }
+}
+async function loadCards(){
+ try{renderCards(await api("/api/get-cards"))}
+ catch(e){console.error(e);cardsElement.innerHTML='<div class="status">Не удалось загрузить данные. Попробуйте позже.</div>'}
+}
+document.getElementById("shareButton").addEventListener("click",()=>{
+ const url="https://t.me/share/url?url="+encodeURIComponent("https://t.me/Chelsgameappbot")+"&text="+encodeURIComponent("Присоединяйся!");
+ openTelegramUrl(url);
+});
+loadCards();
+</script>
+</body>
+</html>
