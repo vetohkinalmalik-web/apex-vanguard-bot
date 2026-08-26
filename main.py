@@ -5,7 +5,7 @@ from flask import Flask, send_from_directory
 # Создаем веб-сервер для отдачи index.html (Админки)
 app = Flask(name, static_folder='.')
 
-@app.route('/')
+app = Flask(name, static_folder='.')
 def serve_index():
     return send_from_directory('.', 'index.html')
 
