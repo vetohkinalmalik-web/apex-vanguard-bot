@@ -1,3 +1,24 @@
+import os
+import threading
+from flask import Flask, send_from_directory
+
+# Создаем веб-сервер для отдачи index.html (Админки)
+app = Flask(name, static_folder='.')
+
+@app.route('/')
+def serve_index():
+    return send_from_directory('.', 'index.html')
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
+# Запускаем сайт в фоновом потоке, чтобы он не мешал работе бота
+threading.Thread(target=run_web, daemon=True).start()
+
+# =========================================================
+# НИЖЕ ОСТАЕТСЯ ВАШ СУЩЕСТВУЮЩИЙ КОД БОТА
+# =========================================================
 from future import annotations
 import hashlib
 import hmac
