@@ -2,3 +2,5 @@
 uvicorn
 pydantic
 python-dotenv
+flask
+reguests
