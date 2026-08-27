@@ -1,4 +1,4 @@
-from future import annotations
+from __future__ import annotations
 import os
 import threading
 from flask import Flask, send_from_directory
