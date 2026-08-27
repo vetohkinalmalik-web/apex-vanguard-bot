@@ -1,5 +1,4 @@
-from future import annotations
-
+from __future__ import annotations
 import hashlib
 import hmac
 import json
@@ -88,7 +87,6 @@ def db_connection():
 
 def init_database():
     with db_connection() as db:
-        # Поле coins удалено из таблицы пользователей
         db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 telegram_id INTEGER PRIMARY KEY,
@@ -133,7 +131,7 @@ def init_database():
             )
         """)
         db.execute("CREATE INDEX IF NOT EXISTS idx_logs_user ON action_logs(telegram_id)")
-        db.execute("CREATE INDEX IF NOT EXISTS idx_logs_time ON action_logs(created_at)")
+[27.08.2026 22:46] Макс: db.execute("CREATE INDEX IF NOT EXISTS idx_logs_time ON action_logs(created_at)")
         db.execute(
             """
             INSERT OR IGNORE INTO cards (
@@ -255,8 +253,7 @@ def verify_telegram_init_data(init_data_raw: str) -> Optional[dict]:
         pairs = parse_qsl(init_data_raw, keep_blank_values=True, strict_parsing=True)
         data = dict(pairs)
         received_hash = data.pop("hash", None)
-
-        if not received_hash:
+  if not received_hash:
             return None
         auth_date_raw = data.get("auth_date")
         if not auth_date_raw:
@@ -362,23 +359,22 @@ def authenticate_admin(request: Request, init_data: Optional[str]) -> dict:
         RATE_LIMIT_ADMIN,
     )
     user = authenticate_request(request, init_data)
-    telegram_id = int(user["id"])
+    telegram_id = str(user["id"])
 
     if telegram_id != ADMIN_ID:
-        log_action(request, "admin_access_denied", telegram_id)
+        log_action(request, "admin_access_denied", int(telegram_id))
         raise HTTPException(
             status_code=403,
             detail="Недостаточно прав.",
         )
 
-    log_action(request, "admin_authenticated", telegram_id)
+    log_action(request, "admin_authenticated", int(telegram_id))
     return user
 
 # ============================================================
 # SCHEMAS
 # ============================================================
-
-class CardUpdateModel(BaseModel):
+    class CardUpdateModel(BaseModel):
     model_config = ConfigDict(
         str_strip_whitespace=True,
         extra="forbid",
@@ -491,10 +487,8 @@ async def delete_card(
 
     log_action(request, "card_deleted", int(user["id"]), {"card_key": card_key})
     return {"status": "success"}
-
-
-@app.get("/api/admin/logs")
-async def get_admin_logs(
+    @app.get("/api/admin/logs")
+    async def get_admin_logs(
     request: Request,
     x_telegram_init_data: Optional[str] = Header(default=None),
 ):
@@ -507,6 +501,7 @@ async def get_admin_logs(
 
     log_action(request, "admin_logs_viewed", int(user["id"]))
     return [dict(row) for row in rows]
+
 
 @app.get("/api/admin/users")
 async def get_users(
@@ -529,11 +524,7 @@ async def get_users(
         int(user["id"]),
     )
 
-    return [
-        dict(row)
-        for row in rows
-    ]
-
+    return [dict(row) for row in rows]
 
 
 @app.get("/api/me")
@@ -557,4 +548,5 @@ async def me(
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
