@@ -13,7 +13,7 @@ def serve_index(path=''):
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, use_reloader=False)
+    app.run(host="0.0.0.0", port=port, use_reloader=False) 
 
 # =========================================================
 # НИЖЕ ОСТАЕТСЯ ВАШ СУЩЕСТВУЮЩИЙ КОД БОТА
@@ -45,7 +45,7 @@ DB_PATH = BASE_DIR / "database.sqlite3"
 INDEX_PATH = BASE_DIR / "index.html"
 ADMIN_INDEX_PATH = BASE_DIR / "admin.html"
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8075824870:AAF049XTC0E2w8znaDCYgYvRYKix7NOyk4w").strip()
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8075824870:AAFyv88pbJJ8FdhkXPWskQFju8bYoZB1RRo").strip()
 
 try:
     ADMIN_ID = int(os.getenv("ADMIN_ID", "802560745"))
@@ -164,8 +164,8 @@ def init_database():
             """,
             (
                 "chessmood",
-                "Шахматный портал",
-                "Играйте и обучайтесь шахматам",
+                "Opex Мультимедия",
+                "Игры Развлечение Шопинг",
                 "https://t.me/Chelsgameappbot",
                 "https://via.placeholder.com/96",
                 int(time.time()),
