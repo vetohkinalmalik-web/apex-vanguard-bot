@@ -131,7 +131,7 @@ def init_database():
             )
         """)
         db.execute("CREATE INDEX IF NOT EXISTS idx_logs_user ON action_logs(telegram_id)")
-[27.08.2026 22:46] Макс: db.execute("CREATE INDEX IF NOT EXISTS idx_logs_time ON action_logs(created_at)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_logs_time ON action_logs(created_at)")
         db.execute(
             """
             INSERT OR IGNORE INTO cards (
