@@ -7,7 +7,8 @@ from flask import Flask, send_from_directory
 app = Flask(__name__, static_folder='.')
 
 @app.route('/')
-def serve_index():
+@app.route('/<path:path>')
+def serve_index(path=''):
     return send_from_directory('.', 'index.html')
 
 def run_web():
