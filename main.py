@@ -40,7 +40,7 @@ import uvicorn
 # CONFIG
 # ============================================================
 
-BASE_DIR = Path(file).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent
 
 DB_PATH = BASE_DIR / "database.sqlite3"
 INDEX_PATH = BASE_DIR / "index.html"
