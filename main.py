@@ -1,3 +1,4 @@
+from future import annotations
 import os
 import threading
 from flask import Flask, send_from_directory
@@ -18,7 +19,6 @@ threading.Thread(target=run_web, daemon=True).start()
 # =========================================================
 # НИЖЕ ОСТАЕТСЯ ВАШ СУЩЕСТВУЮЩИЙ КОД БОТА
 # =========================================================
-from future import annotations
 import hashlib
 import hmac
 import json
