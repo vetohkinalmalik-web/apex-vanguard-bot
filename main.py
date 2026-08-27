@@ -6,6 +6,9 @@ from flask import Flask, send_from_directory
 # Создаем веб-сервер для отдачи index.html (Админки)
 app = Flask(__name__, static_folder='.')
 
+@app.route('/')
+def serve_index():
+    return send_from_directory('.', 'index.html')
 def serve_index():
     return send_from_directory('.', 'index.html')
 
