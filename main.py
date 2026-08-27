@@ -1,3 +1,38 @@
+import hashlib
+import hmac
+import json
+import logging
+import os
+import sqlite3
+import time
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Optional
+from urllib.parse import parse_qsl
+
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+import uvicorn
+
+# ==============================================================================
+# CONFIG
+# ==============================================================================
+
+BASE_DIR = Path(file).resolve().parent
+
+DB_PATH = BASE_DIR / "database.sqlite3"
+INDEX_PATH = BASE_DIR / "index.html"
+ADMIN_INDEX_PATH = BASE_DIR / "admin.html"
+
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8075824870:AAFyv88pbJJ8FdhkXPWskQFju8bYoZB1RRo").strip()
+ADMIN_ID = str(os.getenv("ADMIN_ID", "802560745")).strip()
+
+INIT_DATA_MAX_AGE = 300
+RATE_WINDOW = 10
+RATE_LIMIT_GENERAL = 30
+RATE_LIMIT_ADMIN = 10
+MAX_BODY_SIZE = 64 * 1024
 from __future__ import annotations
 import os
 import threading
