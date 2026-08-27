@@ -48,9 +48,7 @@ ADMIN_INDEX_PATH = BASE_DIR / "admin.html"
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8075824870:AAFyv88pbJJ8FdhkXPWskQFju8bYoZB1RRo").strip()
 
 try:
-    ADMIN_ID = int(os.getenv("ADMIN_ID", "802560745"))
-except ValueError:
-    ADMIN_ID = 0
+ADMIN_ID = str(os.getenv("ADMIN_ID", "802560745")).strip()
 
 INIT_DATA_MAX_AGE = 300
 RATE_WINDOW = 10
