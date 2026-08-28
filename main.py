@@ -378,7 +378,7 @@ def authenticate_admin(request: Request, init_data: Optional[str]) -> dict:
 # SCHEMAS
 # ============================================================
     class CardUpdateModel(BaseModel):
-        model_config = ConfigDict(...)
+        model_config = ConfigDict(...
         str_strip_whitespace=True,
         extra="forbid",
     )
