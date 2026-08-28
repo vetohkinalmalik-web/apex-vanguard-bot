@@ -26,8 +26,11 @@ DB_PATH = BASE_DIR / "database.sqlite3"
 INDEX_PATH = BASE_DIR / "index.html"
 ADMIN_INDEX_PATH = BASE_DIR / "admin.html"
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8075824870:AAFyv88pbJJ8FdhkXPWskQFju8bYoZB1RRo").strip()
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8075824870:AAEUl5sv6-5YSuYQij6lsNzaYG3zGDeV4Fg").strip()
 ADMIN_ID = str(os.getenv("ADMIN_ID", "802560745")).strip()
+
+if not BOT_TOKEN:
+    logger.error("КРИТИЧЕСКАЯ ОШИБКА: BOT_TOKEN не задан в Environment переменные Render!")
 
 INIT_DATA_MAX_AGE = 300
 RATE_WINDOW = 10
