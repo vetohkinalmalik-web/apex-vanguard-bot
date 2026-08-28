@@ -256,7 +256,7 @@ def verify_telegram_init_data(init_data_raw: str) -> Optional[dict]:
         pairs = parse_qsl(init_data_raw, keep_blank_values=True, strict_parsing=True)
         data = dict(pairs)
         received_hash = data.pop("hash", None)
-  if not received_hash:
+        if not received_hash:
             return None
         auth_date_raw = data.get("auth_date")
         if not auth_date_raw:
