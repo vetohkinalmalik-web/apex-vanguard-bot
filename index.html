@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru"> 
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
@@ -7,66 +7,328 @@
 <title>Game Portal</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-:root{--bg:var(--tg-theme-bg-color,#0b0e14);--text:var(--tg-theme-text-color,#fff);--hint:var(--tg-theme-hint-color,#94a3b8);--card:rgba(255,255,255,.06);--border:rgba(255,255,255,.09)}
+:root{--bg:var(--tg-theme-bg-color,#0b0e14);--text:var(--tg-theme-text-color,#fff);--hint:var(--tg-theme-hint-color,#94a3b8);--card:rgba(255,255,255,.06);--border:rgba(255,255,255,.09);--accent:#3b82f6;--danger:#ef4444}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;padding:20px 16px;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 .container{width:100%;max-width:520px;margin:auto}
 .header{text-align:center;margin-bottom:18px}.title{margin:0;font-size:24px;font-weight:800}.subtitle{margin:5px 0 0;color:var(--hint);font-size:13px}
 #cards{display:flex;flex-direction:column;gap:12px}
 .card{display:flex;align-items:center;gap:14px;padding:15px;border:1px solid var(--border);border-radius:18px;background:var(--card);cursor:pointer;transition:transform .12s ease}
-.card:active{transform:scale(.985)}.card img{width:52px;height:52px;border-radius:13px;object-fit:cover;flex:none}
-.info{min-width:0;flex:1}.card-title{display:block;font-size:16px;font-weight:750}.card-desc{display:block;margin-top:3px;color:var(--hint);font-size:12px;overflow:hidden;text-overflow:ellipsis}
-.status{text-align:center;padding:20px;color:var(--hint);font-size:13px}.share{margin-top:14px;justify-content:center}
+.card:active{transform:scale(.985)}.card img{width:52px;height:52px;border-radius:13px;object-fit:cover;flex:none;background:#1e293b}
+.info{min-width:0;flex:1}.card-title{display:block;font-size:16px;font-weight:750}.card-desc{display:block;margin-top:3px;color:var(--hint);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status{text-align:center;padding:20px;color:var(--hint);font-size:13px}
+.share{margin-top:14px;justify-content:center}
+.admin-toggle{margin-top:16px;width:100%;padding:13px;border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--text);font-size:14px;font-weight:700;cursor:pointer}
+.admin-toggle:active{transform:scale(.985)}
+#adminPanel{display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)}
+#adminPanel.open{display:block}
+.admin-title{font-size:15px;font-weight:800;margin:0 0 12px}
+.admin-list{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+.admin-item{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.admin-item img{width:38px;height:38px;border-radius:9px;object-fit:cover;flex:none;background:#1e293b}
+.admin-item .info{font-size:12px}
+.admin-item .card-title{font-size:13px}
+.admin-item .card-desc{font-size:11px}
+.admin-actions{display:flex;gap:6px;flex:none}
+.icon-btn{border:none;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.icon-btn.edit{background:rgba(59,130,246,.18);color:#93c5fd}
+.icon-btn.del{background:rgba(239,68,68,.18);color:#fca5a5}
+.form{display:flex;flex-direction:column;gap:10px}
+.form label{font-size:12px;color:var(--hint);font-weight:600}
+.form input{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:14px;outline:none}
+.form input:focus{border-color:var(--accent)}
+.form-row{display:flex;gap:8px}
+.form-row .field{flex:1;min-width:0}
+.btn-row{display:flex;gap:8px;margin-top:4px}
+.btn{flex:1;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.ghost{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.form-msg{font-size:12px;min-height:16px;color:var(--hint)}
+.form-msg.error{color:var(--danger)}
+.form-msg.ok{color:#4ade80}
 </style>
 </head>
 <body>
 <main class="container">
 <header class="header"><h1 class="title">Добро пожаловать!</h1><p class="subtitle">Выберите раздел для продолжения</p></header>
+
 <section id="cards" aria-live="polite"><div class="status">Загрузка...</div></section>
+
 <div class="card share" id="shareButton"><div class="info"><span class="card-title">🔗 Поделиться</span><span class="card-desc">Отправить ссылку друзьям</span></div></div>
+
+<button type="button" class="admin-toggle" id="adminToggle" style="display:none">🛠 Админ-панель</button>
+
+<section id="adminPanel" aria-live="polite">
+  <h2 class="admin-title">Управление карточками</h2>
+  <div class="admin-list" id="adminList"></div>
+
+  <h2 class="admin-title" id="formTitle">Добавить карточку</h2>
+  <form class="form" id="cardForm" autocomplete="off">
+    <div class="field">
+      <label for="f_key">Ключ (card_key, латиница/цифры/-/_)</label>
+      <input id="f_key" name="card_key" maxlength="30" pattern="[a-zA-Z0-9_-]+" required>
+    </div>
+    <div class="field">
+      <label for="f_title">Название</label>
+      <input id="f_title" name="title" maxlength="50" required>
+    </div>
+    <div class="field">
+      <label for="f_desc">Описание</label>
+      <input id="f_desc" name="description" maxlength="150" required>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="f_url">Партнёрская ссылка (https://...)</label>
+        <input id="f_url" name="url" type="url" required>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="f_img">Ссылка на картинку (https://...)</label>
+        <input id="f_img" name="image_url" type="url" required>
+      </div>
+    </div>
+    <div class="form-msg" id="formMsg"></div>
+    <div class="btn-row">
+      <button type="submit" class="btn primary" id="submitBtn">Сохранить</button>
+      <button type="button" class="btn ghost" id="cancelEditBtn" style="display:none">Отмена</button>
+    </div>
+  </form>
+</section>
+
 </main>
 <script>
 "use strict";
-const tg=window.Telegram?.WebApp;
-const cardsElement=document.getElementById("cards");
-if(tg){tg.ready();tg.expand();}
-function initData(){return tg?.initData||"";}
-function openTelegramUrl(url){
- if(typeof url!=="string"||!/^https?:\/\//i.test(url))return;
- try{if(tg)tg.openTelegramLink(url);else window.open(url,"_blank","noopener,noreferrer")}
- catch(e){console.error(e);tg?.showAlert?.("Не удалось открыть ссылку.")}
+const tg = window.Telegram?.WebApp;
+const cardsElement = document.getElementById("cards");
+const adminToggle = document.getElementById("adminToggle");
+const adminPanel = document.getElementById("adminPanel");
+const adminList = document.getElementById("adminList");
+const cardForm = document.getElementById("cardForm");
+const formMsg = document.getElementById("formMsg");
+const formTitle = document.getElementById("formTitle");
+const submitBtn = document.getElementById("submitBtn");
+const cancelEditBtn = document.getElementById("cancelEditBtn");
+const keyInput = document.getElementById("f_key");
+
+let isAdmin = false;
+let editingKey = null;
+
+if (tg) { tg.ready(); tg.expand(); }
+
+function initData() {
+  return tg?.initData || "";
 }
-async function api(path,options={}){
- const headers=new Headers(options.headers||{});
- headers.set("X-Telegram-Init-Data",initData());
- const response=await fetch(path,{...options,headers,credentials:"same-origin",cache:"no-store"});
- let data=null;try{data=await response.json()}catch{}
- if(!response.ok)throw new Error(data?.detail||"Ошибка сервера.");
- return data;
+
+function openTelegramUrl(url) {
+  if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return;
+  try {
+    if (tg) tg.openTelegramLink(url);
+    else window.open(url, "_blank", "noopener,noreferrer");
+  } catch (e) {
+    console.error(e);
+    tg?.showAlert?.("Не удалось открыть ссылку.");
+  }
 }
-function renderCards(cards){
- cardsElement.replaceChildren();
- if(!Array.isArray(cards)||!cards.length){cardsElement.innerHTML='<div class="status">Пока нет доступных разделов.</div>';return;}
- for(const card of cards){
-  const article=document.createElement("article");article.className="card";
-  const image=document.createElement("img");image.src=String(card.image_url||"");image.alt="";image.loading="lazy";image.referrerPolicy="no-referrer";
-  image.onerror=()=>{image.src="https://via.placeholder.com/96"};
-  const info=document.createElement("div");info.className="info";
-  const title=document.createElement("span");title.className="card-title";title.textContent=String(card.title||"");
-  const desc=document.createElement("span");desc.className="card-desc";desc.textContent=String(card.description||"");
-  info.append(title,desc);article.append(image,info);
-  article.addEventListener("click",()=>openTelegramUrl(card.url));cardsElement.append(article);
- }
+
+async function api(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  headers.set("X-Telegram-Init-Data", initData());
+  if (options.body) headers.set("Content-Type", "application/json");
+  const response = await fetch(path, { ...options, headers, credentials: "same-origin", cache: "no-store" });
+  let data = null;
+  try { data = await response.json(); } catch {}
+  if (!response.ok) throw new Error(data?.detail || "Ошибка сервера.");
+  return data;
 }
-async function loadCards(){
- try{renderCards(await api("/api/get-cards"))}
- catch(e){console.error(e);cardsElement.innerHTML='<div class="status">Не удалось загрузить данные. Попробуйте позже.</div>'}
+
+function renderCards(cards) {
+  cardsElement.replaceChildren();
+  if (!Array.isArray(cards) || !cards.length) {
+    cardsElement.innerHTML = '<div class="status">Пока нет доступных разделов.</div>';
+    return;
+  }
+  for (const card of cards) {
+    const article = document.createElement("article");
+    article.className = "card";
+    const image = document.createElement("img");
+    image.src = String(card.image_url || "");
+    image.alt = "";
+    image.loading = "lazy";
+    image.referrerPolicy = "no-referrer";
+    image.onerror = () => { image.src = "https://via.placeholder.com/96"; };
+    const info = document.createElement("div");
+    info.className = "info";
+    const title = document.createElement("span");
+    title.className = "card-title";
+    title.textContent = String(card.title || "");
+    const desc = document.createElement("span");
+    desc.className = "card-desc";
+    desc.textContent = String(card.description || "");
+    info.append(title, desc);
+    article.append(image, info);
+    article.addEventListener("click", () => openTelegramUrl(card.url));
+    cardsElement.append(article);
+  }
 }
-document.getElementById("shareButton").addEventListener("click",()=>{
- const url="https://t.me/share/url?url="+encodeURIComponent("https://t.me/Chelsgameappbot")+"&text="+encodeURIComponent("Присоединяйся!");
- openTelegramUrl(url);
+
+function renderAdminList(cards) {
+  adminList.replaceChildren();
+  if (!Array.isArray(cards) || !cards.length) {
+    adminList.innerHTML = '<div class="status">Карточек пока нет.</div>';
+    return;
+  }
+  for (const card of cards) {
+    const row = document.createElement("div");
+    row.className = "admin-item";
+    const image = document.createElement("img");
+    image.src = String(card.image_url || "");
+    image.onerror = () => { image.src = "https://via.placeholder.com/64"; };
+    const info = document.createElement("div");
+    info.className = "info";
+    info.style.flex = "1";
+    info.style.minWidth = "0";
+    const title = document.createElement("span");
+    title.className = "card-title";
+    title.textContent = String(card.title || "");
+    const desc = document.createElement("span");
+    desc.className = "card-desc";
+    desc.textContent = card.card_key;
+    info.append(title, desc);
+    const actions = document.createElement("div");
+    actions.className = "admin-actions";
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "icon-btn edit";
+    editBtn.textContent = "✏️";
+    editBtn.addEventListener("click", () => startEdit(card));
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "icon-btn del";
+    delBtn.textContent = "🗑";
+    delBtn.addEventListener("click", () => deleteCard(card.card_key));
+    actions.append(editBtn, delBtn);
+    row.append(image, info, actions);
+    adminList.append(row);
+  }
+}
+
+function setFormMsg(text, type) {
+  formMsg.textContent = text || "";
+  formMsg.className = "form-msg" + (type ? " " + type : "");
+}
+
+function startEdit(card) {
+  editingKey = card.card_key;
+  keyInput.value = card.card_key;
+  keyInput.disabled = true;
+  document.getElementById("f_title").value = card.title || "";
+  document.getElementById("f_desc").value = card.description || "";
+  document.getElementById("f_url").value = card.url || "";
+  document.getElementById("f_img").value = card.image_url || "";
+  formTitle.textContent = "Редактировать карточку";
+  submitBtn.textContent = "Обновить";
+  cancelEditBtn.style.display = "block";
+  setFormMsg("", "");
+  cardForm.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resetForm() {
+  editingKey = null;
+  cardForm.reset();
+  keyInput.disabled = false;
+  formTitle.textContent = "Добавить карточку";
+  submitBtn.textContent = "Сохранить";
+  cancelEditBtn.style.display = "none";
+  setFormMsg("", "");
+}
+
+cancelEditBtn.addEventListener("click", resetForm);
+
+async function deleteCard(cardKey) {
+  const confirmed = tg?.showConfirm
+    ? await new Promise((resolve) => tg.showConfirm("Удалить карточку?", resolve))
+    : window.confirm("Удалить карточку?");
+  if (!confirmed) return;
+  try {
+    await api(`/api/admin/delete-card/${encodeURIComponent(cardKey)}`, { method: "DELETE" });
+    if (editingKey === cardKey) resetForm();
+    await loadAll();
+  } catch (e) {
+    tg?.showAlert?.(e.message || "Не удалось удалить карточку.");
+  }
+}
+
+cardForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = {
+    card_key: keyInput.value.trim(),
+    title: document.getElementById("f_title").value.trim(),
+    description: document.getElementById("f_desc").value.trim(),
+    url: document.getElementById("f_url").value.trim(),
+    image_url: document.getElementById("f_img").value.trim(),
+  };
+  submitBtn.disabled = true;
+  setFormMsg("Сохранение...", "");
+  try {
+    const path = editingKey ? "/api/admin/update-card" : "/api/admin/create-card";
+    await api(path, { method: "POST", body: JSON.stringify(payload) });
+    setFormMsg("Готово!", "ok");
+    resetForm();
+    await loadAll();
+  } catch (e) {
+    setFormMsg(e.message || "Ошибка сохранения.", "error");
+  } finally {
+    submitBtn.disabled = false;
+  }
 });
-loadCards();
+
+adminToggle.addEventListener("click", () => {
+  const open = adminPanel.classList.toggle("open");
+  adminToggle.textContent = open ? "🛠 Скрыть админ-панель" : "🛠 Админ-панель";
+  if (open) loadAdminList();
+});
+
+async function loadAdminList() {
+  try {
+    renderAdminList(await api("/api/get-cards"));
+  } catch (e) {
+    adminList.innerHTML = '<div class="status">Не удалось загрузить список.</div>';
+  }
+}
+
+async function loadCards() {
+  try {
+    renderCards(await api("/api/get-cards"));
+  } catch (e) {
+    console.error(e);
+    cardsElement.innerHTML = '<div class="status">Не удалось загрузить данные. Попробуйте позже.</div>';
+  }
+}
+
+async function checkAdmin() {
+  try {
+    const me = await api("/api/me");
+    isAdmin = Boolean(me?.is_admin);
+    adminToggle.style.display = isAdmin ? "block" : "none";
+  } catch (e) {
+    isAdmin = false;
+  }
+}
+
+async function loadAll() {
+  await Promise.all([loadCards(), isAdmin && adminPanel.classList.contains("open") ? loadAdminList() : Promise.resolve()]);
+}
+
+document.getElementById("shareButton").addEventListener("click", () => {
+  const url = "https://t.me/share/url?url=" + encodeURIComponent("https://t.me/Chelsgameappbot") + "&text=" + encodeURIComponent("Присоединяйся!");
+  openTelegramUrl(url);
+});
+
+(async function init() {
+  await checkAdmin();
+  await loadCards();
+})();
 </script>
 </body>
 </html>
