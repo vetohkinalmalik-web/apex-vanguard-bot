@@ -1,334 +1,661 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#0b0e14">
-<title>Game Portal</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-:root{--bg:var(--tg-theme-bg-color,#0b0e14);--text:var(--tg-theme-text-color,#fff);--hint:var(--tg-theme-hint-color,#94a3b8);--card:rgba(255,255,255,.06);--border:rgba(255,255,255,.09);--accent:#3b82f6;--danger:#ef4444}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;padding:20px 16px;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-.container{width:100%;max-width:520px;margin:auto}
-.header{text-align:center;margin-bottom:18px}.title{margin:0;font-size:24px;font-weight:800}.subtitle{margin:5px 0 0;color:var(--hint);font-size:13px}
-#cards{display:flex;flex-direction:column;gap:12px}
-.card{display:flex;align-items:center;gap:14px;padding:15px;border:1px solid var(--border);border-radius:18px;background:var(--card);cursor:pointer;transition:transform .12s ease}
-.card:active{transform:scale(.985)}.card img{width:52px;height:52px;border-radius:13px;object-fit:cover;flex:none;background:#1e293b}
-.info{min-width:0;flex:1}.card-title{display:block;font-size:16px;font-weight:750}.card-desc{display:block;margin-top:3px;color:var(--hint);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.status{text-align:center;padding:20px;color:var(--hint);font-size:13px}
-.share{margin-top:14px;justify-content:center}
-.admin-toggle{margin-top:16px;width:100%;padding:13px;border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--text);font-size:14px;font-weight:700;cursor:pointer}
-.admin-toggle:active{transform:scale(.985)}
-#adminPanel{display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)}
-#adminPanel.open{display:block}
-.admin-title{font-size:15px;font-weight:800;margin:0 0 12px}
-.admin-list{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
-.admin-item{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
-.admin-item img{width:38px;height:38px;border-radius:9px;object-fit:cover;flex:none;background:#1e293b}
-.admin-item .info{font-size:12px}
-.admin-item .card-title{font-size:13px}
-.admin-item .card-desc{font-size:11px}
-.admin-actions{display:flex;gap:6px;flex:none}
-.icon-btn{border:none;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}
-.icon-btn.edit{background:rgba(59,130,246,.18);color:#93c5fd}
-.icon-btn.del{background:rgba(239,68,68,.18);color:#fca5a5}
-.form{display:flex;flex-direction:column;gap:10px}
-.form label{font-size:12px;color:var(--hint);font-weight:600}
-.form input{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:14px;outline:none}
-.form input:focus{border-color:var(--accent)}
-.form-row{display:flex;gap:8px}
-.form-row .field{flex:1;min-width:0}
-.btn-row{display:flex;gap:8px;margin-top:4px}
-.btn{flex:1;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer}
-.btn.primary{background:var(--accent);color:#fff}
-.btn.ghost{background:var(--card);color:var(--text);border:1px solid var(--border)}
-.form-msg{font-size:12px;min-height:16px;color:var(--hint)}
-.form-msg.error{color:var(--danger)}
-.form-msg.ok{color:#4ade80}
-</style>
-</head>
-<body>
-<main class="container">
-<header class="header"><h1 class="title">Добро пожаловать!</h1><p class="subtitle">Выберите раздел для продолжения</p></header>
-
-<section id="cards" aria-live="polite"><div class="status">Загрузка...</div></section>
-
-<div class="card share" id="shareButton"><div class="info"><span class="card-title">🔗 Поделиться</span><span class="card-desc">Отправить ссылку друзьям</span></div></div>
-
-<button type="button" class="admin-toggle" id="adminToggle" style="display:none">🛠 Админ-панель</button>
-
-<section id="adminPanel" aria-live="polite">
-  <h2 class="admin-title">Управление карточками</h2>
-  <div class="admin-list" id="adminList"></div>
-
-  <h2 class="admin-title" id="formTitle">Добавить карточку</h2>
-  <form class="form" id="cardForm" autocomplete="off">
-    <div class="field">
-      <label for="f_key">Ключ (card_key, латиница/цифры/-/_)</label>
-      <input id="f_key" name="card_key" maxlength="30" pattern="[a-zA-Z0-9_-]+" required>
-    </div>
-    <div class="field">
-      <label for="f_title">Название</label>
-      <input id="f_title" name="title" maxlength="50" required>
-    </div>
-    <div class="field">
-      <label for="f_desc">Описание</label>
-      <input id="f_desc" name="description" maxlength="150" required>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label for="f_url">Партнёрская ссылка (https://...)</label>
-        <input id="f_url" name="url" type="url" required>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label for="f_img">Ссылка на картинку (https://...)</label>
-        <input id="f_img" name="image_url" type="url" required>
-      </div>
-    </div>
-    <div class="form-msg" id="formMsg"></div>
-    <div class="btn-row">
-      <button type="submit" class="btn primary" id="submitBtn">Сохранить</button>
-      <button type="button" class="btn ghost" id="cancelEditBtn" style="display:none">Отмена</button>
-    </div>
-  </form>
-</section>
-
-</main>
-<script>
-"use strict";
-const tg = window.Telegram?.WebApp;
-const cardsElement = document.getElementById("cards");
-const adminToggle = document.getElementById("adminToggle");
-const adminPanel = document.getElementById("adminPanel");
-const adminList = document.getElementById("adminList");
-const cardForm = document.getElementById("cardForm");
-const formMsg = document.getElementById("formMsg");
-const formTitle = document.getElementById("formTitle");
-const submitBtn = document.getElementById("submitBtn");
-const cancelEditBtn = document.getElementById("cancelEditBtn");
-const keyInput = document.getElementById("f_key");
-
-let isAdmin = false;
-let editingKey = null;
-
-if (tg) { tg.ready(); tg.expand(); }
-
-function initData() {
-  return tg?.initData || "";
-}
-
-function openTelegramUrl(url) {
-  if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return;
-  try {
-    if (tg) tg.openTelegramLink(url);
-    else window.open(url, "_blank", "noopener,noreferrer");
-  } catch (e) {
-    console.error(e);
-    tg?.showAlert?.("Не удалось открыть ссылку.");
-  }
-}
-
-async function api(path, options = {}) {
-  const headers = new Headers(options.headers || {});
-  headers.set("X-Telegram-Init-Data", initData());
-  if (options.body) headers.set("Content-Type", "application/json");
-  const response = await fetch(path, { ...options, headers, credentials: "same-origin", cache: "no-store" });
-  let data = null;
-  try { data = await response.json(); } catch {}
-  if (!response.ok) throw new Error(data?.detail || "Ошибка сервера.");
-  return data;
-}
-
-function renderCards(cards) {
-  cardsElement.replaceChildren();
-  if (!Array.isArray(cards) || !cards.length) {
-    cardsElement.innerHTML = '<div class="status">Пока нет доступных разделов.</div>';
-    return;
-  }
-  for (const card of cards) {
-    const article = document.createElement("article");
-    article.className = "card";
-    const image = document.createElement("img");
-    image.src = String(card.image_url || "");
-    image.alt = "";
-    image.loading = "lazy";
-    image.referrerPolicy = "no-referrer";
-    image.onerror = () => { image.src = "https://via.placeholder.com/96"; };
-    const info = document.createElement("div");
-    info.className = "info";
-    const title = document.createElement("span");
-    title.className = "card-title";
-    title.textContent = String(card.title || "");
-    const desc = document.createElement("span");
-    desc.className = "card-desc";
-    desc.textContent = String(card.description || "");
-    info.append(title, desc);
-    article.append(image, info);
-    article.addEventListener("click", () => openTelegramUrl(card.url));
-    cardsElement.append(article);
-  }
-}
-
-function renderAdminList(cards) {
-  adminList.replaceChildren();
-  if (!Array.isArray(cards) || !cards.length) {
-    adminList.innerHTML = '<div class="status">Карточек пока нет.</div>';
-    return;
-  }
-  for (const card of cards) {
-    const row = document.createElement("div");
-    row.className = "admin-item";
-    const image = document.createElement("img");
-    image.src = String(card.image_url || "");
-    image.onerror = () => { image.src = "https://via.placeholder.com/64"; };
-    const info = document.createElement("div");
-    info.className = "info";
-    info.style.flex = "1";
-    info.style.minWidth = "0";
-    const title = document.createElement("span");
-    title.className = "card-title";
-    title.textContent = String(card.title || "");
-    const desc = document.createElement("span");
-    desc.className = "card-desc";
-    desc.textContent = card.card_key;
-    info.append(title, desc);
-    const actions = document.createElement("div");
-    actions.className = "admin-actions";
-    const editBtn = document.createElement("button");
-    editBtn.type = "button";
-    editBtn.className = "icon-btn edit";
-    editBtn.textContent = "✏️";
-    editBtn.addEventListener("click", () => startEdit(card));
-    const delBtn = document.createElement("button");
-    delBtn.type = "button";
-    delBtn.className = "icon-btn del";
-    delBtn.textContent = "🗑";
-    delBtn.addEventListener("click", () => deleteCard(card.card_key));
-    actions.append(editBtn, delBtn);
-    row.append(image, info, actions);
-    adminList.append(row);
-  }
-}
-
-function setFormMsg(text, type) {
-  formMsg.textContent = text || "";
-  formMsg.className = "form-msg" + (type ? " " + type : "");
-}
-
-function startEdit(card) {
-  editingKey = card.card_key;
-  keyInput.value = card.card_key;
-  keyInput.disabled = true;
-  document.getElementById("f_title").value = card.title || "";
-  document.getElementById("f_desc").value = card.description || "";
-  document.getElementById("f_url").value = card.url || "";
-  document.getElementById("f_img").value = card.image_url || "";
-  formTitle.textContent = "Редактировать карточку";
-  submitBtn.textContent = "Обновить";
-  cancelEditBtn.style.display = "block";
-  setFormMsg("", "");
-  cardForm.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function resetForm() {
-  editingKey = null;
-  cardForm.reset();
-  keyInput.disabled = false;
-  formTitle.textContent = "Добавить карточку";
-  submitBtn.textContent = "Сохранить";
-  cancelEditBtn.style.display = "none";
-  setFormMsg("", "");
-}
-
-cancelEditBtn.addEventListener("click", resetForm);
-
-async function deleteCard(cardKey) {
-  const confirmed = tg?.showConfirm
-    ? await new Promise((resolve) => tg.showConfirm("Удалить карточку?", resolve))
-    : window.confirm("Удалить карточку?");
-  if (!confirmed) return;
-  try {
-    await api(`/api/admin/delete-card/${encodeURIComponent(cardKey)}`, { method: "DELETE" });
-    if (editingKey === cardKey) resetForm();
-    await loadAll();
-  } catch (e) {
-    tg?.showAlert?.(e.message || "Не удалось удалить карточку.");
-  }
-}
-
-cardForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const payload = {
-    card_key: keyInput.value.trim(),
-    title: document.getElementById("f_title").value.trim(),
-    description: document.getElementById("f_desc").value.trim(),
-    url: document.getElementById("f_url").value.trim(),
-    image_url: document.getElementById("f_img").value.trim(),
-  };
-  submitBtn.disabled = true;
-  setFormMsg("Сохранение...", "");
-  try {
-    const path = editingKey ? "/api/admin/update-card" : "/api/admin/create-card";
-    await api(path, { method: "POST", body: JSON.stringify(payload) });
-    setFormMsg("Готово!", "ok");
-    resetForm();
-    await loadAll();
-  } catch (e) {
-    setFormMsg(e.message || "Ошибка сохранения.", "error");
-  } finally {
-    submitBtn.disabled = false;
-  }
-});
-
-adminToggle.addEventListener("click", () => {
-  const open = adminPanel.classList.toggle("open");
-  adminToggle.textContent = open ? "🛠 Скрыть админ-панель" : "🛠 Админ-панель";
-  if (open) loadAdminList();
-});
-
-async function loadAdminList() {
-  try {
-    renderAdminList(await api("/api/get-cards"));
-  } catch (e) {
-    adminList.innerHTML = '<div class="status">Не удалось загрузить список.</div>';
-  }
-}
-
-async function loadCards() {
-  try {
-    renderCards(await api("/api/get-cards"));
-  } catch (e) {
-    console.error(e);
-    cardsElement.innerHTML = '<div class="status">Не удалось загрузить данные. Попробуйте позже.</div>';
-  }
-}
-
-async function checkAdmin() {
-  try {
-    const me = await api("/api/me");
-    isAdmin = Boolean(me?.is_admin);
-    adminToggle.style.display = isAdmin ? "block" : "none";
-  } catch (e) {
-    isAdmin = false;
-  }
-}
-
-async function loadAll() {
-  await Promise.all([loadCards(), isAdmin && adminPanel.classList.contains("open") ? loadAdminList() : Promise.resolve()]);
-}
-
-document.getElementById("shareButton").addEventListener("click", () => {
-  const url = "https://t.me/share/url?url=" + encodeURIComponent("https://t.me/Chelsgameappbot") + "&text=" + encodeURIComponent("Присоединяйся!");
-  openTelegramUrl(url);
-});
-
-(async function init() {
-  await checkAdmin();
-  await loadCards();
-})();
-</script>
-</body>
-</html>
+n · PY
+from __future__ import annotations
+import hashlib
+import hmac
+import json
+import logging
+import os
+import sqlite3
+import time
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Optional
+from urllib.parse import parse_qsl
+ 
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+import uvicorn
+import secrets
+import telebot
+from telebot import types as tg_types
+ 
+# ============================================================
+# CONFIG
+# ============================================================
+ 
+BASE_DIR = Path(__file__).resolve().parent
+ 
+DB_PATH = BASE_DIR / "database.sqlite3"
+INDEX_PATH = BASE_DIR / "index.html"
+# Отдельного admin.html нет — админ-панель встроена в index.html
+# (секция #adminPanel), видимость которой определяется на фронте
+# по полю is_admin из /api/me.
+ 
+# ВАЖНО: токен НИКОГДА не хранится в коде, только в переменной окружения.
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+ 
+try:
+    ADMIN_ID = int(os.getenv("ADMIN_ID", "802560745"))
+except ValueError:
+    ADMIN_ID = 0
+ 
+# Публичный адрес этого же сервиса (Web Service на Render).
+# Используется и для кнопок Web App у бота, и для регистрации webhook.
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://apex-vanguard-bot.onrender.com").strip().rstrip("/")
+ 
+# Секретный сегмент пути вебхука, чтобы никто посторонний не мог слать
+# поддельные "обновления" боту, зная только домен сервиса.
+# Если не задан явно в Environment — генерируется случайно при каждом
+# старте (тогда webhook просто переустановится с новым путём).
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip() or secrets.token_urlsafe(24)
+ 
+INIT_DATA_MAX_AGE = 300
+RATE_WINDOW = 10
+RATE_LIMIT_GENERAL = 30
+RATE_LIMIT_ADMIN = 10
+MAX_BODY_SIZE = 64 * 1024
+ 
+# ============================================================
+# LOGGING
+# ============================================================
+ 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+)
+logger = logging.getLogger("telegram-mini-app")
+ 
+if not BOT_TOKEN:
+    logger.critical(
+        "КРИТИЧЕСКАЯ ОШИБКА: BOT_TOKEN не задан в Environment переменных Render! "
+        "Задайте его в Render Dashboard -> Environment. Токен НЕ должен храниться в коде — "
+        "если он попадёт в чужие руки, бот полностью переходит под чужой контроль."
+    )
+ 
+# ============================================================
+# FASTAPI APP
+# ============================================================
+ 
+app = FastAPI(
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
+ 
+# ============================================================
+# TELEGRAM BOT (webhook-режим, работает в том же процессе/сервисе)
+# ============================================================
+ 
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML", threaded=False) if BOT_TOKEN else None
+ 
+ 
+if bot:
+    @bot.message_handler(commands=["start"])
+    def bot_send_welcome(message: tg_types.Message):
+        keyboard = tg_types.InlineKeyboardMarkup()
+        keyboard.add(
+            tg_types.InlineKeyboardButton(
+                "🎮 Открыть",
+                web_app=tg_types.WebAppInfo(url=WEBAPP_URL),
+            )
+        )
+        # Кнопка добавляется ТОЛЬКО если Telegram ID совпадает с ADMIN_ID —
+        # у остальных пользователей её просто нет в разметке сообщения.
+        if message.from_user.id == ADMIN_ID:
+            keyboard.add(
+                tg_types.InlineKeyboardButton(
+                    "🛠 Панель управления",
+                    web_app=tg_types.WebAppInfo(url=WEBAPP_URL),
+                )
+            )
+        bot.send_message(
+            message.chat.id,
+            "Добро пожаловать! Нажмите кнопку ниже, чтобы открыть приложение.",
+            reply_markup=keyboard,
+        )
+ 
+    @bot.message_handler(func=lambda m: True)
+    def bot_fallback(message: tg_types.Message):
+        bot.send_message(message.chat.id, "Нажмите /start, чтобы открыть меню.")
+ 
+# ============================================================
+# DATABASE
+# ============================================================
+ 
+def get_db() -> sqlite3.Connection:
+    db = sqlite3.connect(
+        DB_PATH,
+        timeout=10,
+        check_same_thread=False,
+    )
+    db.row_factory = sqlite3.Row
+    db.execute("PRAGMA foreign_keys = ON")
+    db.execute("PRAGMA journal_mode = WAL")
+    db.execute("PRAGMA busy_timeout = 5000")
+    return db
+ 
+ 
+@contextmanager
+def db_connection():
+    db = get_db()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+ 
+ 
+def init_database():
+    with db_connection() as db:
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                telegram_id INTEGER PRIMARY KEY,
+                username TEXT,
+                first_name TEXT,
+                last_name TEXT,
+                language_code TEXT,
+                is_premium INTEGER DEFAULT 0,
+                first_seen INTEGER NOT NULL,
+                last_seen INTEGER NOT NULL
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS cards (
+                card_key TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                url TEXT NOT NULL,
+                image_url TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS action_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER,
+                action TEXT NOT NULL,
+                ip TEXT,
+                user_agent TEXT,
+                details TEXT,
+                created_at INTEGER NOT NULL
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                telegram_id INTEGER NOT NULL,
+                created_at INTEGER NOT NULL,
+                last_activity INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL
+            )
+        """)
+        db.execute("CREATE INDEX IF NOT EXISTS idx_logs_user ON action_logs(telegram_id)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_logs_time ON action_logs(created_at)")
+        db.execute(
+            """
+            INSERT OR IGNORE INTO cards (
+                card_key, title, description, url, image_url, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "chessmood",
+                "Шахматный портал",
+                "Играйте и обучайтесь шахматам",
+                "https://t.me/Chelsgameappbot",
+                "https://via.placeholder.com/96",
+                int(time.time()),
+                int(time.time()),
+            ),
+        )
+ 
+ 
+init_database()
+ 
+# ============================================================
+# SECURITY HEADERS MIDDLEWARE
+# ============================================================
+ 
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > MAX_BODY_SIZE:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request too large"},
+                )
+        except ValueError:
+            pass
+ 
+    response = await call_next(request)
+ 
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Cache-Control"] = "no-store"
+ 
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "img-src 'self' https: data:; "
+        "script-src 'self' 'unsafe-inline' https://telegram.org https://sad.adsgram.ai https://mc.yandex.ru; "
+        "style-src 'self' 'unsafe-inline'; "
+        "connect-src 'self' https:; "
+        "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org;"
+    )
+ 
+    return response
+ 
+# ============================================================
+# RATE LIMITER
+# ============================================================
+ 
+rate_limit_storage: dict[str, list[float]] = {}
+ 
+ 
+def check_rate_limit(ip: str, limit: int = RATE_LIMIT_GENERAL):
+    now = time.time()
+    history = rate_limit_storage.get(ip, [])
+    history = [ts for ts in history if now - ts < RATE_WINDOW]
+ 
+    if len(history) >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail="Слишком много запросов.",
+        )
+ 
+    history.append(now)
+    rate_limit_storage[ip] = history
+ 
+# ============================================================
+# LOGGING ACTIONS
+# ============================================================
+ 
+def log_action(
+    request: Request,
+    action: str,
+    telegram_id: Optional[int] = None,
+    details: Optional[dict] = None,
+):
+    try:
+        ip = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent", "")[:500]
+ 
+        with db_connection() as db:
+            db.execute(
+                """
+                INSERT INTO action_logs (telegram_id, action, ip, user_agent, details, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    telegram_id,
+                    action,
+                    ip,
+                    user_agent,
+                    json.dumps(details or {}, ensure_ascii=False),
+                    int(time.time()),
+                ),
+            )
+    except Exception:
+        logger.exception("Ошибка записи лога")
+ 
+# ============================================================
+# TELEGRAM AUTH VALIDATION
+# ============================================================
+ 
+def verify_telegram_init_data(init_data_raw: str) -> Optional[dict]:
+    if not BOT_TOKEN or not init_data_raw:
+        return None
+ 
+    try:
+        pairs = parse_qsl(init_data_raw, keep_blank_values=True, strict_parsing=True)
+        data = dict(pairs)
+        received_hash = data.pop("hash", None)
+ 
+        if not received_hash:
+            return None
+        auth_date_raw = data.get("auth_date")
+        if not auth_date_raw:
+            return None
+ 
+        auth_date = int(auth_date_raw)
+        now = int(time.time())
+ 
+        if abs(now - auth_date) > INIT_DATA_MAX_AGE:
+            return None
+ 
+        data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(data.items()))
+        secret_key = hmac.new(
+            key=b"WebAppData",
+            msg=BOT_TOKEN.encode("utf-8"),
+            digestmod=hashlib.sha256,
+        ).digest()
+ 
+        calculated_hash = hmac.new(
+            key=secret_key,
+            msg=data_check_string.encode("utf-8"),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+ 
+        if not hmac.compare_digest(calculated_hash, received_hash):
+            return None
+ 
+        user_raw = data.get("user")
+        if not user_raw:
+            return None
+ 
+        user = json.loads(user_raw)
+        if not isinstance(user, dict) or not isinstance(user.get("id"), int):
+            return None
+ 
+        return {"user": user, "auth_date": auth_date}
+    except Exception:
+        logger.exception("Ошибка Telegram authentication")
+        return None
+ 
+# ============================================================
+# USER REGISTRATION
+# ============================================================
+ 
+def register_user(user: dict, request: Request):
+    telegram_id = int(user["id"])
+    now = int(time.time())
+ 
+    with db_connection() as db:
+        db.execute(
+            """
+            INSERT INTO users (
+                telegram_id, username, first_name, last_name, language_code, is_premium, first_seen, last_seen
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(telegram_id) DO UPDATE SET
+                username = excluded.username,
+                first_name = excluded.first_name,
+                last_name = excluded.last_name,
+                language_code = excluded.language_code,
+                is_premium = excluded.is_premium,
+                last_seen = excluded.last_seen
+            """,
+            (
+                telegram_id,
+                user.get("username"),
+                user.get("first_name"),
+                user.get("last_name"),
+                user.get("language_code"),
+                1 if user.get("is_premium") else 0,
+                now,
+                now,
+            ),
+        )
+ 
+# ============================================================
+# AUTH DEPENDENCIES
+# ============================================================
+ 
+def authenticate_request(request: Request, init_data: Optional[str]) -> dict:
+    if not init_data:
+        raise HTTPException(
+            status_code=401,
+            detail="Telegram authentication required",
+        )
+ 
+    result = verify_telegram_init_data(init_data)
+    if not result:
+        log_action(request, "authentication_failed")
+        raise HTTPException(
+            status_code=401,
+            detail="Недействительная авторизация Telegram.",
+        )
+ 
+    user = result["user"]
+    register_user(user, request)
+    log_action(request, "user_request", int(user["id"]))
+    return user
+ 
+ 
+def authenticate_admin(request: Request, init_data: Optional[str]) -> dict:
+    check_rate_limit(
+        request.client.host if request.client else "unknown",
+        RATE_LIMIT_ADMIN,
+    )
+    user = authenticate_request(request, init_data)
+    telegram_id = int(user["id"])
+ 
+    if telegram_id != ADMIN_ID:
+        log_action(request, "admin_access_denied", telegram_id)
+        raise HTTPException(
+            status_code=403,
+            detail="Недостаточно прав.",
+        )
+ 
+    log_action(request, "admin_authenticated", telegram_id)
+    return user
+ 
+# ============================================================
+# SCHEMAS
+# ============================================================
+ 
+class CardUpdateModel(BaseModel):
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        extra="forbid",
+    )
+    card_key: str = Field(min_length=1, max_length=30, pattern=r"^[a-zA-Z0-9_-]+$")
+    title: str = Field(min_length=1, max_length=50)
+    description: str = Field(min_length=1, max_length=150)
+    url: HttpUrl
+    image_url: HttpUrl
+ 
+# ============================================================
+# ROUTES
+# ============================================================
+ 
+@app.get("/")
+async def root():
+    if not INDEX_PATH.exists():
+        raise HTTPException(status_code=404, detail="index.html не найден.")
+    return FileResponse(INDEX_PATH, headers={"Cache-Control": "no-store"})
+ 
+ 
+@app.get("/admin")
+async def admin_page():
+    # Отдельного admin.html нет — отдаём тот же index.html.
+    # Панель управления открывается кнопкой на странице и видна
+    # только пользователю с telegram_id == ADMIN_ID (см. /api/me).
+    if not INDEX_PATH.exists():
+        raise HTTPException(status_code=404, detail="index.html не найден.")
+    return FileResponse(INDEX_PATH, headers={"Cache-Control": "no-store"})
+ 
+ 
+@app.post(f"/webhook/{{secret}}")
+async def telegram_webhook(secret: str, request: Request):
+    # Только Telegram, знающий секретный путь, может слать сюда обновления.
+    if not bot or secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=404, detail="Not found")
+ 
+    body = await request.body()
+    try:
+        update = tg_types.Update.de_json(body.decode("utf-8"))
+        bot.process_new_updates([update])
+    except Exception:
+        logger.exception("Ошибка обработки Telegram webhook")
+    return {"ok": True}
+ 
+ 
+@app.on_event("startup")
+async def register_telegram_webhook():
+    if not bot:
+        logger.warning("BOT_TOKEN не задан — Telegram-бот отключён, webhook не регистрируется.")
+        return
+    try:
+        bot.remove_webhook()
+        bot.set_webhook(url=f"{WEBAPP_URL}/webhook/{WEBHOOK_SECRET}")
+        logger.info("Telegram webhook зарегистрирован: %s/webhook/***", WEBAPP_URL)
+    except Exception:
+        logger.exception("Не удалось зарегистрировать Telegram webhook")
+ 
+ 
+@app.get("/api/get-cards")
+async def get_cards(
+    request: Request,
+    x_telegram_init_data: Optional[str] = Header(default=None),
+):
+    check_rate_limit(request.client.host if request.client else "unknown")
+    authenticate_request(request, x_telegram_init_data)
+ 
+    with db_connection() as db:
+        rows = db.execute(
+            "SELECT card_key, title, description, url, image_url FROM cards ORDER BY rowid ASC"
+        ).fetchall()
+ 
+    return [dict(row) for row in rows]
+ 
+ 
+@app.post("/api/admin/update-card")
+async def update_card(
+    data: CardUpdateModel,
+    request: Request,
+    x_telegram_init_data: Optional[str] = Header(default=None),
+):
+    user = authenticate_admin(request, x_telegram_init_data)
+    now = int(time.time())
+ 
+    with db_connection() as db:
+        cursor = db.execute(
+            """
+            UPDATE cards
+            SET title = ?, description = ?, url = ?, image_url = ?, updated_at = ?
+            WHERE card_key = ?
+            """,
+            (data.title, data.description, str(data.url), str(data.image_url), now, data.card_key),
+        )
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Карточка не найдена.")
+ 
+    log_action(request, "card_updated", int(user["id"]), {"card_key": data.card_key})
+    return {"status": "success"}
+ 
+ 
+@app.post("/api/admin/create-card")
+async def create_card(
+    data: CardUpdateModel,
+    request: Request,
+    x_telegram_init_data: Optional[str] = Header(default=None),
+):
+    user = authenticate_admin(request, x_telegram_init_data)
+    now = int(time.time())
+ 
+    try:
+        with db_connection() as db:
+            db.execute(
+                """
+                INSERT INTO cards (card_key, title, description, url, image_url, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (data.card_key, data.title, data.description, str(data.url), str(data.image_url), now, now),
+            )
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409, detail="Карточка с таким ключом уже существует.")
+ 
+    log_action(request, "card_created", int(user["id"]), {"card_key": data.card_key})
+    return {"status": "success"}
+ 
+ 
+@app.delete("/api/admin/delete-card/{card_key}")
+async def delete_card(
+    card_key: str,
+    request: Request,
+    x_telegram_init_data: Optional[str] = Header(default=None),
+):
+    user = authenticate_admin(request, x_telegram_init_data)
+ 
+    if not card_key.isascii() or len(card_key) > 30:
+        raise HTTPException(status_code=400, detail="Некорректный card_key.")
+ 
+    with db_connection() as db:
+        cursor = db.execute("DELETE FROM cards WHERE card_key = ?", (card_key,))
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Карточка не найдена.")
+ 
+    log_action(request, "card_deleted", int(user["id"]), {"card_key": card_key})
+    return {"status": "success"}
+ 
+ 
+@app.get("/api/admin/logs")
+async def get_admin_logs(
+    request: Request,
+    x_telegram_init_data: Optional[str] = Header(default=None),
+):
+    user = authenticate_admin(request, x_telegram_init_data)
+ 
+    with db_connection() as db:
+        rows = db.execute(
+            """
+            SELECT id, telegram_id, action, ip, user_agent, details, created_at
+            FROM action_logs ORDER BY id DESC LIMIT 200
+            """
+        ).fetchall()
+ 
+    log_action(request, "admin_logs_viewed", int(user["id"]))
+    return [dict(row) for row in rows]
+ 
+ 
+@app.get("/api/admin/users")
+async def get_users(
+    request: Request,
+    x_telegram_init_data: Optional[str] = Header(default=None),
+):
+    user = authenticate_admin(
+        request,
+        x_telegram_init_data,
+    )
+ 
+    with db_connection() as db:
+        rows = db.execute(
+            """
+            SELECT telegram_id, username, first_name, last_name, language_code, is_premium, first_seen, last_seen
+            FROM users ORDER BY last_seen DESC LIMIT 1000
+            """
+        ).fetchall()
+ 
+    log_action(
+        request,
+        "admin_users_viewed",
+        int(user["id"]),
+    )
+ 
+    return [dict(row) for row in rows]
+ 
+ 
+@app.get("/api/me")
+async def me(
+    request: Request,
+    x_telegram_init_data: Optional[str] = Header(default=None),
+):
+    user = authenticate_request(request, x_telegram_init_data)
+    telegram_id = int(user["id"])
+ 
+    with db_connection() as db:
+        row = db.execute(
+            """
+            SELECT telegram_id, username, first_name, last_name, first_seen, last_seen
+            FROM users WHERE telegram_id = ?
+            """,
+            (telegram_id,),
+        ).fetchone()
+ 
+    # ВАЖНО: именно этого поля не хватало в предыдущей версии.
+    # Кнопка "Админ-панель" на фронте показывается только если is_admin == true.
+    result = dict(row) if row else {}
+    result["is_admin"] = bool(ADMIN_ID) and telegram_id == ADMIN_ID
+    return result
+ 
+ 
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
