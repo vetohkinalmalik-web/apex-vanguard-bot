@@ -1,4 +1,5 @@
-from __future__ import annotations 
+n · PY
+from __future__ import annotations
 import hashlib
 import hmac
 import json
@@ -10,62 +11,118 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qsl
-
+ 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 import uvicorn
-
+import secrets
+import telebot
+from telebot import types as tg_types
+ 
 # ============================================================
-# LOGGING (должно быть объявлено ДО первого использования logger)
+# CONFIG
 # ============================================================
-
+ 
+BASE_DIR = Path(__file__).resolve().parent
+ 
+DB_PATH = BASE_DIR / "database.sqlite3"
+INDEX_PATH = BASE_DIR / "index.html"
+# Отдельного admin.html нет — админ-панель встроена в index.html
+# (секция #adminPanel), видимость которой определяется на фронте
+# по полю is_admin из /api/me.
+ 
+# ВАЖНО: токен НИКОГДА не хранится в коде, только в переменной окружения.
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+ 
+try:
+    ADMIN_ID = int(os.getenv("ADMIN_ID", "802560745"))
+except ValueError:
+    ADMIN_ID = 0
+ 
+# Публичный адрес этого же сервиса (Web Service на Render).
+# Используется и для кнопок Web App у бота, и для регистрации webhook.
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://apex-vanguard-bot.onrender.com").strip().rstrip("/")
+ 
+# Секретный сегмент пути вебхука, чтобы никто посторонний не мог слать
+# поддельные "обновления" боту, зная только домен сервиса.
+# Если не задан явно в Environment — генерируется случайно при каждом
+# старте (тогда webhook просто переустановится с новым путём).
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip() or secrets.token_urlsafe(24)
+ 
+INIT_DATA_MAX_AGE = 300
+RATE_WINDOW = 10
+RATE_LIMIT_GENERAL = 30
+RATE_LIMIT_ADMIN = 10
+MAX_BODY_SIZE = 64 * 1024
+ 
+# ============================================================
+# LOGGING
+# ============================================================
+ 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
 )
 logger = logging.getLogger("telegram-mini-app")
-
-# ==============================================================================
-# CONFIG
-# ==============================================================================
-
-BASE_DIR = Path(__file__).resolve().parent
-
-DB_PATH = BASE_DIR / "database.sqlite3"
-INDEX_PATH = BASE_DIR / "index.html"
-ADMIN_INDEX_PATH = BASE_DIR / "admin.html"
-
-BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
-ADMIN_ID = str(os.getenv("ADMIN_ID", "802560745")).strip()
-
+ 
 if not BOT_TOKEN:
     logger.critical(
         "КРИТИЧЕСКАЯ ОШИБКА: BOT_TOKEN не задан в Environment переменных Render! "
         "Задайте его в Render Dashboard -> Environment. Токен НЕ должен храниться в коде — "
         "если он попадёт в чужие руки, бот полностью переходит под чужой контроль."
     )
-
-INIT_DATA_MAX_AGE = 300
-RATE_WINDOW = 10
-RATE_LIMIT_GENERAL = 30
-RATE_LIMIT_ADMIN = 10
-MAX_BODY_SIZE = 64 * 1024
-
+ 
 # ============================================================
 # FASTAPI APP
 # ============================================================
-
+ 
 app = FastAPI(
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
 )
-
+ 
+# ============================================================
+# TELEGRAM BOT (webhook-режим, работает в том же процессе/сервисе)
+# ============================================================
+ 
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML", threaded=False) if BOT_TOKEN else None
+ 
+ 
+if bot:
+    @bot.message_handler(commands=["start"])
+    def bot_send_welcome(message: tg_types.Message):
+        keyboard = tg_types.InlineKeyboardMarkup()
+        keyboard.add(
+            tg_types.InlineKeyboardButton(
+                "🎮 Открыть",
+                web_app=tg_types.WebAppInfo(url=WEBAPP_URL),
+            )
+        )
+        # Кнопка добавляется ТОЛЬКО если Telegram ID совпадает с ADMIN_ID —
+        # у остальных пользователей её просто нет в разметке сообщения.
+        if message.from_user.id == ADMIN_ID:
+            keyboard.add(
+                tg_types.InlineKeyboardButton(
+                    "🛠 Панель управления",
+                    web_app=tg_types.WebAppInfo(url=WEBAPP_URL),
+                )
+            )
+        bot.send_message(
+            message.chat.id,
+            "Добро пожаловать! Нажмите кнопку ниже, чтобы открыть приложение.",
+            reply_markup=keyboard,
+        )
+ 
+    @bot.message_handler(func=lambda m: True)
+    def bot_fallback(message: tg_types.Message):
+        bot.send_message(message.chat.id, "Нажмите /start, чтобы открыть меню.")
+ 
 # ============================================================
 # DATABASE
 # ============================================================
-
+ 
 def get_db() -> sqlite3.Connection:
     db = sqlite3.connect(
         DB_PATH,
@@ -77,8 +134,8 @@ def get_db() -> sqlite3.Connection:
     db.execute("PRAGMA journal_mode = WAL")
     db.execute("PRAGMA busy_timeout = 5000")
     return db
-
-
+ 
+ 
 @contextmanager
 def db_connection():
     db = get_db()
@@ -90,8 +147,8 @@ def db_connection():
         raise
     finally:
         db.close()
-
-
+ 
+ 
 def init_database():
     with db_connection() as db:
         db.execute("""
@@ -147,22 +204,22 @@ def init_database():
             """,
             (
                 "chessmood",
-                "Opex Мультимедия",
-                "Игры Развлечение Шопинг",
+                "Шахматный портал",
+                "Играйте и обучайтесь шахматам",
                 "https://t.me/Chelsgameappbot",
                 "https://via.placeholder.com/96",
                 int(time.time()),
                 int(time.time()),
             ),
         )
-
-
+ 
+ 
 init_database()
-
+ 
 # ============================================================
 # SECURITY HEADERS MIDDLEWARE
 # ============================================================
-
+ 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     content_length = request.headers.get("content-length")
@@ -175,51 +232,51 @@ async def security_headers(request: Request, call_next):
                 )
         except ValueError:
             pass
-
+ 
     response = await call_next(request)
-
+ 
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     response.headers["Cache-Control"] = "no-store"
-
+ 
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "img-src 'self' https: data:; "
-        "script-src 'self' 'unsafe-inline' https://telegram.org https://sad.adsgram.ai; "
+        "script-src 'self' 'unsafe-inline' https://telegram.org https://sad.adsgram.ai https://mc.yandex.ru; "
         "style-src 'self' 'unsafe-inline'; "
         "connect-src 'self' https:; "
         "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org;"
     )
-
+ 
     return response
-
+ 
 # ============================================================
 # RATE LIMITER
 # ============================================================
-
+ 
 rate_limit_storage: dict[str, list[float]] = {}
-
-
+ 
+ 
 def check_rate_limit(ip: str, limit: int = RATE_LIMIT_GENERAL):
     now = time.time()
     history = rate_limit_storage.get(ip, [])
     history = [ts for ts in history if now - ts < RATE_WINDOW]
-
+ 
     if len(history) >= limit:
         raise HTTPException(
             status_code=429,
             detail="Слишком много запросов.",
         )
-
+ 
     history.append(now)
     rate_limit_storage[ip] = history
-
+ 
 # ============================================================
 # LOGGING ACTIONS
 # ============================================================
-
+ 
 def log_action(
     request: Request,
     action: str,
@@ -229,7 +286,7 @@ def log_action(
     try:
         ip = request.client.host if request.client else None
         user_agent = request.headers.get("user-agent", "")[:500]
-
+ 
         with db_connection() as db:
             db.execute(
                 """
@@ -247,68 +304,69 @@ def log_action(
             )
     except Exception:
         logger.exception("Ошибка записи лога")
-
+ 
 # ============================================================
 # TELEGRAM AUTH VALIDATION
 # ============================================================
-
+ 
 def verify_telegram_init_data(init_data_raw: str) -> Optional[dict]:
     if not BOT_TOKEN or not init_data_raw:
         return None
-
+ 
     try:
         pairs = parse_qsl(init_data_raw, keep_blank_values=True, strict_parsing=True)
         data = dict(pairs)
         received_hash = data.pop("hash", None)
+ 
         if not received_hash:
             return None
         auth_date_raw = data.get("auth_date")
         if not auth_date_raw:
             return None
-
+ 
         auth_date = int(auth_date_raw)
         now = int(time.time())
-
+ 
         if abs(now - auth_date) > INIT_DATA_MAX_AGE:
             return None
-
+ 
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(data.items()))
         secret_key = hmac.new(
             key=b"WebAppData",
             msg=BOT_TOKEN.encode("utf-8"),
             digestmod=hashlib.sha256,
         ).digest()
-
+ 
         calculated_hash = hmac.new(
             key=secret_key,
             msg=data_check_string.encode("utf-8"),
             digestmod=hashlib.sha256,
         ).hexdigest()
-
+ 
         if not hmac.compare_digest(calculated_hash, received_hash):
             return None
-
+ 
         user_raw = data.get("user")
         if not user_raw:
             return None
-
+ 
         user = json.loads(user_raw)
         if not isinstance(user, dict) or not isinstance(user.get("id"), int):
             return None
-
+ 
         return {"user": user, "auth_date": auth_date}
     except Exception:
         logger.exception("Ошибка Telegram authentication")
         return None
-
+ 
 # ============================================================
 # USER REGISTRATION
 # ============================================================
-
+ 
 def register_user(user: dict, request: Request):
     telegram_id = int(user["id"])
     now = int(time.time())
-
+ 
     with db_connection() as db:
         db.execute(
             """
@@ -334,18 +392,18 @@ def register_user(user: dict, request: Request):
                 now,
             ),
         )
-
+ 
 # ============================================================
 # AUTH DEPENDENCIES
 # ============================================================
-
+ 
 def authenticate_request(request: Request, init_data: Optional[str]) -> dict:
     if not init_data:
         raise HTTPException(
             status_code=401,
             detail="Telegram authentication required",
         )
-
+ 
     result = verify_telegram_init_data(init_data)
     if not result:
         log_action(request, "authentication_failed")
@@ -353,35 +411,35 @@ def authenticate_request(request: Request, init_data: Optional[str]) -> dict:
             status_code=401,
             detail="Недействительная авторизация Telegram.",
         )
-
+ 
     user = result["user"]
     register_user(user, request)
     log_action(request, "user_request", int(user["id"]))
     return user
-
-
+ 
+ 
 def authenticate_admin(request: Request, init_data: Optional[str]) -> dict:
     check_rate_limit(
         request.client.host if request.client else "unknown",
         RATE_LIMIT_ADMIN,
     )
     user = authenticate_request(request, init_data)
-    telegram_id = str(user["id"])
-
+    telegram_id = int(user["id"])
+ 
     if telegram_id != ADMIN_ID:
-        log_action(request, "admin_access_denied", int(telegram_id))
+        log_action(request, "admin_access_denied", telegram_id)
         raise HTTPException(
             status_code=403,
             detail="Недостаточно прав.",
         )
-
-    log_action(request, "admin_authenticated", int(telegram_id))
+ 
+    log_action(request, "admin_authenticated", telegram_id)
     return user
-
+ 
 # ============================================================
 # SCHEMAS
 # ============================================================
-
+ 
 class CardUpdateModel(BaseModel):
     model_config = ConfigDict(
         str_strip_whitespace=True,
@@ -392,25 +450,56 @@ class CardUpdateModel(BaseModel):
     description: str = Field(min_length=1, max_length=150)
     url: HttpUrl
     image_url: HttpUrl
-
+ 
 # ============================================================
 # ROUTES
 # ============================================================
-
+ 
 @app.get("/")
 async def root():
     if not INDEX_PATH.exists():
         raise HTTPException(status_code=404, detail="index.html не найден.")
     return FileResponse(INDEX_PATH, headers={"Cache-Control": "no-store"})
-
-
+ 
+ 
 @app.get("/admin")
 async def admin_page():
-    if not ADMIN_INDEX_PATH.exists():
-        raise HTTPException(status_code=404, detail="admin.html не найден.")
-    return FileResponse(ADMIN_INDEX_PATH, headers={"Cache-Control": "no-store"})
-
-
+    # Отдельного admin.html нет — отдаём тот же index.html.
+    # Панель управления открывается кнопкой на странице и видна
+    # только пользователю с telegram_id == ADMIN_ID (см. /api/me).
+    if not INDEX_PATH.exists():
+        raise HTTPException(status_code=404, detail="index.html не найден.")
+    return FileResponse(INDEX_PATH, headers={"Cache-Control": "no-store"})
+ 
+ 
+@app.post(f"/webhook/{{secret}}")
+async def telegram_webhook(secret: str, request: Request):
+    # Только Telegram, знающий секретный путь, может слать сюда обновления.
+    if not bot or secret != WEBHOOK_SECRET:
+        raise HTTPException(status_code=404, detail="Not found")
+ 
+    body = await request.body()
+    try:
+        update = tg_types.Update.de_json(body.decode("utf-8"))
+        bot.process_new_updates([update])
+    except Exception:
+        logger.exception("Ошибка обработки Telegram webhook")
+    return {"ok": True}
+ 
+ 
+@app.on_event("startup")
+async def register_telegram_webhook():
+    if not bot:
+        logger.warning("BOT_TOKEN не задан — Telegram-бот отключён, webhook не регистрируется.")
+        return
+    try:
+        bot.remove_webhook()
+        bot.set_webhook(url=f"{WEBAPP_URL}/webhook/{WEBHOOK_SECRET}")
+        logger.info("Telegram webhook зарегистрирован: %s/webhook/***", WEBAPP_URL)
+    except Exception:
+        logger.exception("Не удалось зарегистрировать Telegram webhook")
+ 
+ 
 @app.get("/api/get-cards")
 async def get_cards(
     request: Request,
@@ -418,15 +507,15 @@ async def get_cards(
 ):
     check_rate_limit(request.client.host if request.client else "unknown")
     authenticate_request(request, x_telegram_init_data)
-
+ 
     with db_connection() as db:
         rows = db.execute(
             "SELECT card_key, title, description, url, image_url FROM cards ORDER BY rowid ASC"
         ).fetchall()
-
+ 
     return [dict(row) for row in rows]
-
-
+ 
+ 
 @app.post("/api/admin/update-card")
 async def update_card(
     data: CardUpdateModel,
@@ -435,7 +524,7 @@ async def update_card(
 ):
     user = authenticate_admin(request, x_telegram_init_data)
     now = int(time.time())
-
+ 
     with db_connection() as db:
         cursor = db.execute(
             """
@@ -447,11 +536,11 @@ async def update_card(
         )
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Карточка не найдена.")
-
+ 
     log_action(request, "card_updated", int(user["id"]), {"card_key": data.card_key})
     return {"status": "success"}
-
-
+ 
+ 
 @app.post("/api/admin/create-card")
 async def create_card(
     data: CardUpdateModel,
@@ -460,7 +549,7 @@ async def create_card(
 ):
     user = authenticate_admin(request, x_telegram_init_data)
     now = int(time.time())
-
+ 
     try:
         with db_connection() as db:
             db.execute(
@@ -472,11 +561,11 @@ async def create_card(
             )
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail="Карточка с таким ключом уже существует.")
-
+ 
     log_action(request, "card_created", int(user["id"]), {"card_key": data.card_key})
     return {"status": "success"}
-
-
+ 
+ 
 @app.delete("/api/admin/delete-card/{card_key}")
 async def delete_card(
     card_key: str,
@@ -484,26 +573,26 @@ async def delete_card(
     x_telegram_init_data: Optional[str] = Header(default=None),
 ):
     user = authenticate_admin(request, x_telegram_init_data)
-
+ 
     if not card_key.isascii() or len(card_key) > 30:
         raise HTTPException(status_code=400, detail="Некорректный card_key.")
-
+ 
     with db_connection() as db:
         cursor = db.execute("DELETE FROM cards WHERE card_key = ?", (card_key,))
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Карточка не найдена.")
-
+ 
     log_action(request, "card_deleted", int(user["id"]), {"card_key": card_key})
     return {"status": "success"}
-
-
+ 
+ 
 @app.get("/api/admin/logs")
 async def get_admin_logs(
     request: Request,
     x_telegram_init_data: Optional[str] = Header(default=None),
 ):
     user = authenticate_admin(request, x_telegram_init_data)
-
+ 
     with db_connection() as db:
         rows = db.execute(
             """
@@ -511,11 +600,11 @@ async def get_admin_logs(
             FROM action_logs ORDER BY id DESC LIMIT 200
             """
         ).fetchall()
-
+ 
     log_action(request, "admin_logs_viewed", int(user["id"]))
     return [dict(row) for row in rows]
-
-
+ 
+ 
 @app.get("/api/admin/users")
 async def get_users(
     request: Request,
@@ -525,7 +614,7 @@ async def get_users(
         request,
         x_telegram_init_data,
     )
-
+ 
     with db_connection() as db:
         rows = db.execute(
             """
@@ -533,16 +622,16 @@ async def get_users(
             FROM users ORDER BY last_seen DESC LIMIT 1000
             """
         ).fetchall()
-
+ 
     log_action(
         request,
         "admin_users_viewed",
         int(user["id"]),
     )
-
+ 
     return [dict(row) for row in rows]
-
-
+ 
+ 
 @app.get("/api/me")
 async def me(
     request: Request,
@@ -550,7 +639,7 @@ async def me(
 ):
     user = authenticate_request(request, x_telegram_init_data)
     telegram_id = int(user["id"])
-
+ 
     with db_connection() as db:
         row = db.execute(
             """
@@ -559,12 +648,14 @@ async def me(
             """,
             (telegram_id,),
         ).fetchone()
-
+ 
+    # ВАЖНО: именно этого поля не хватало в предыдущей версии.
+    # Кнопка "Админ-панель" на фронте показывается только если is_admin == true.
     result = dict(row) if row else {}
-    result["is_admin"] = bool(ADMIN_ID) and str(telegram_id) == ADMIN_ID
+    result["is_admin"] = bool(ADMIN_ID) and telegram_id == ADMIN_ID
     return result
-
-
+ 
+ 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
