@@ -25,7 +25,13 @@ from telebot import types as tg_types
  
 BASE_DIR = Path(__file__).resolve().parent
  
-DB_PATH = BASE_DIR / "database.sqlite3"
+# База хранится на постоянном диске Render (Disks), а не в папке кода —
+# папка с кодом пересоздаётся при каждом деплое/рестарте, и SQLite-файл
+# там будет обнуляться. DATA_DIR должен указывать на смонтированный диск
+# (см. Render Dashboard -> ваш сервис -> Disks -> Mount Path).
+DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR)))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH = DATA_DIR / "database.sqlite3"
 INDEX_PATH = BASE_DIR / "index.html"
 # Отдельного admin.html нет — админ-панель встроена в index.html
 # (секция #adminPanel), видимость которой определяется на фронте
@@ -658,3 +664,4 @@ async def me(
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+ 
