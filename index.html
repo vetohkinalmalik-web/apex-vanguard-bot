@@ -13,7 +13,7 @@
      и в отслеживании событий card_open / admin_* / share_click)
      ============================================================ -->
 <script type="text/javascript">
-   var YOUR_METRIKA_ID = 112099096;
+   var YOUR_METRIKA_ID = 112099006;
 
    (function(m,e,t,r,i,k,a){
        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
@@ -86,6 +86,7 @@ body{
   border-radius:50%;
   border:1.5px solid rgba(91,91,214,.35);
   z-index:0;
+  pointer-events:none;
 }
 .portal-ring::after{
   content:"";
@@ -298,14 +299,47 @@ function initData() {
   return tg?.initData || "";
 }
 
+// ВРЕМЕННАЯ ДИАГНОСТИКА: пока разбираемся, почему клики по карточкам не
+// открывают ссылку, каждый клик покажет всплывающее окно с тем, что
+// именно пытается произойти. После того как проблема найдена — можно
+// поставить DEBUG_CLICKS = false (или удалить этот блок целиком).
+const DEBUG_CLICKS = true;
+
 function openTelegramUrl(url) {
-  if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return;
+  if (typeof url !== "string" || !/^https?:\/\//i.test(url)) {
+    if (DEBUG_CLICKS) tg?.showAlert?.("Некорректная ссылка (нет http/https): " + url);
+    return;
+  }
+
+  const isTelegramLink = /^https?:\/\/(t\.me|telegram\.me)\//i.test(url);
+  const hasTg = Boolean(tg);
+  const hasOpenLink = hasTg && typeof tg.openLink === "function";
+  const hasOpenTgLink = hasTg && typeof tg.openTelegramLink === "function";
+
+  if (DEBUG_CLICKS) {
+    tg?.showAlert?.(
+      `DEBUG клик:\nurl=${url}\ntg=${hasTg}\nisTelegramLink=${isTelegramLink}\n` +
+      `openLink=${hasOpenLink}\nopenTelegramLink=${hasOpenTgLink}`
+    );
+  }
+
   try {
-    if (tg) tg.openTelegramLink(url);
-    else window.open(url, "_blank", "noopener,noreferrer");
+    if (hasTg) {
+      if (isTelegramLink && hasOpenTgLink) {
+        tg.openTelegramLink(url);
+      } else if (hasOpenLink) {
+        tg.openLink(url, { try_instant_view: false });
+      } else {
+        window.location.href = url;
+      }
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   } catch (e) {
     console.error(e);
-    tg?.showAlert?.("Не удалось открыть ссылку.");
+    const msg = "Ошибка открытия ссылки: " + (e?.message || String(e));
+    if (tg?.showAlert) tg.showAlert(msg);
+    else alert(msg);
   }
 }
 
